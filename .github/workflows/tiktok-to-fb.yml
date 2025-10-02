@@ -27,4 +27,4 @@ jobs:
         env:
           PAGE_ACCESS_TOKEN: ${{ secrets.PAGE_ACCESS_TOKEN }}
           PAGE_ID: ${{ secrets.PAGE_ID }}
-        run: python yourscript.py
+        run: python tiktok.py
