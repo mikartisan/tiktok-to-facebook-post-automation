@@ -1,21 +1,21 @@
 import json
 import subprocess
-import os
 from pathlib import Path
+import os
 import requests
+import sys
 
-# --- CONFIG ---
 USERNAME = "twice_tiktok_official"
 SAVE_DIR = Path("downloads")
 SAVE_DIR.mkdir(exist_ok=True)
 
-PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
-PAGE_ID = os.getenv("PAGE_ID")
 LAST_ID_FILE = SAVE_DIR / "last_video_id.txt"
 
+PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
+PAGE_ID = os.getenv("PAGE_ID")
 
 def get_latest_video(username: str):
-    """Fetch latest TikTok video metadata"""
+    """Fetch metadata of the latest TikTok video."""
     url = f"https://www.tiktok.com/@{username}"
     cmd = ["python", "-m", "yt_dlp", "-J", "--flat-playlist", url]
 
@@ -27,7 +27,7 @@ def get_latest_video(username: str):
             print("⚠️ No videos found.")
             return None
 
-        latest = data["entries"][0]
+        latest = data["entries"][0]  # newest video
         return {
             "id": latest.get("id"),
             "url": latest.get("url"),
@@ -38,15 +38,10 @@ def get_latest_video(username: str):
         print("❌ yt-dlp error:", e.stderr)
         return None
 
-
 def download_video(url: str, video_id: str):
-    """Download TikTok video"""
+    """Download TikTok video to disk."""
     video_path = SAVE_DIR / f"{video_id}.mp4"
-    cmd = [
-        "python", "-m", "yt_dlp",
-        "-o", str(video_path),
-        url
-    ]
+    cmd = ["python", "-m", "yt_dlp", "-o", str(video_path), url]
 
     try:
         subprocess.run(cmd, check=True)
@@ -56,64 +51,40 @@ def download_video(url: str, video_id: str):
         print("❌ Download failed:", e.stderr)
         return None
 
-
 def post_to_facebook(video_path: Path, caption: str):
-    """Upload video to Facebook Page"""
-    url = f"https://graph-video.facebook.com/v18.0/{PAGE_ID}/videos"
-    params = {
-        "access_token": PAGE_ACCESS_TOKEN,
-        "description": caption
-    }
+    """Upload video to Facebook Page via Graph API."""
+    url = f"https://graph.facebook.com/v18.0/{PAGE_ID}/videos"
+    files = {"source": open(video_path, "rb")}
+    data = {"description": caption, "access_token": PAGE_ACCESS_TOKEN}
 
-    try:
-        with open(video_path, "rb") as f:
-            files = {"file": f}
-            response = requests.post(url, data=params, files=files)
-
-        if response.status_code == 200:
-            print("✅ Uploaded to Facebook:", response.json())
-            return True
-        else:
-            print("❌ Facebook upload error:", response.text)
-            return False
-
-    except Exception as e:
-        print("❌ Exception uploading to Facebook:", e)
+    response = requests.post(url, files=files, data=data)
+    if response.status_code == 200:
+        print("✅ Uploaded to Facebook:", response.json())
+        return True
+    else:
+        print("❌ Upload failed:", response.text)
         return False
-
-
-def get_last_uploaded_id():
-    """Read last uploaded TikTok ID from file"""
-    if LAST_ID_FILE.exists():
-        return LAST_ID_FILE.read_text().strip()
-    return None
-
-
-def save_last_uploaded_id(video_id: str):
-    """Save last uploaded TikTok ID to file"""
-    LAST_ID_FILE.write_text(video_id)
-
 
 if __name__ == "__main__":
     latest = get_latest_video(USERNAME)
     if not latest:
-        exit()
+        sys.exit(0)
 
-    last_uploaded = get_last_uploaded_id()
-    if latest["id"] == last_uploaded:
-        print("⏩ Already uploaded this video. Skipping...")
-        exit()
+    # Load last uploaded video ID
+    last_id = None
+    if LAST_ID_FILE.exists():
+        last_id = LAST_ID_FILE.read_text().strip()
 
-    # Download latest TikTok video
+    if latest["id"] == last_id:
+        print("⏩ No new video. Exiting.")
+        sys.exit(0)
+
+    print("🔗 Latest video URL:", latest['url'])
+    print("📝 Caption:", latest['caption'])
+
     video_path = download_video(latest["url"], latest["id"])
-    if video_path:
-        # Upload to Facebook
-        success = post_to_facebook(video_path, latest["caption"])
-
-        if success:
-            # Save last uploaded ID
-            save_last_uploaded_id(latest["id"])
-
-            # Delete local video file
-            video_path.unlink(missing_ok=True)
-            print(f"🗑️ Deleted local file {video_path}")
+    if video_path and post_to_facebook(video_path, latest["caption"]):
+        # Save latest ID only after successful upload
+        LAST_ID_FILE.write_text(latest["id"])
+        video_path.unlink()  # cleanup
+        print("🧹 Cleaned up local file.")
