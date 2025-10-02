@@ -43,7 +43,7 @@ Add:
 ### 3. Update TikTok username
 
 In tiktok.py, change:
-`USERNAME = "twice_tiktok_official"`
+`USERNAME = "@your_username"`
 
 to your own TikTok username (without @).
 
