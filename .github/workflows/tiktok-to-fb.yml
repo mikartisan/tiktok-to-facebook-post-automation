@@ -2,8 +2,8 @@ name: TikTok to Facebook Auto Upload
 
 on:
   schedule:
-    - cron: "0 18 * * *"   # every hour
-  workflow_dispatch:      # manual trigger
+    - cron: "0 18 * * *"   # runs daily at 6 PM UTC (adjust to your timezone)
+  workflow_dispatch:       # manual trigger
 
 jobs:
   repost:
@@ -23,8 +23,24 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests yt-dlp
 
+      # ⬇️ Download previous state (if exists)
+      - name: Restore last_video_id
+        uses: actions/download-artifact@v4
+        with:
+          name: last-video
+          path: downloads
+        continue-on-error: true   # ignore if first run
+
       - name: Run TikTok → Facebook script
         env:
           PAGE_ACCESS_TOKEN: ${{ secrets.PAGE_ACCESS_TOKEN }}
           PAGE_ID: ${{ secrets.PAGE_ID }}
         run: python tiktok.py
+
+      # ⬆️ Save state for next run
+      - name: Save last_video_id
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: last-video
+          path: downloads/last_video_id.txt
