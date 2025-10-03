@@ -70,21 +70,26 @@ if __name__ == "__main__":
     if not latest:
         sys.exit(0)
 
+    # Ensure last_video_id.txt exists (first run safety)
+    if not LAST_ID_FILE.exists():
+        LAST_ID_FILE.write_text("")
+
     # Load last uploaded video ID
-    last_id = None
-    if LAST_ID_FILE.exists():
-        last_id = LAST_ID_FILE.read_text().strip()
+    last_id = LAST_ID_FILE.read_text().strip()
 
     if latest["id"] == last_id:
-        print("⏩ No new video. Exiting.")
+        print(f"⏩ Skipping: Latest video ({latest['id']}) already uploaded.")
         sys.exit(0)
 
     print("🔗 Latest video URL:", latest['url'])
     print("📝 Caption:", latest['caption'])
 
     video_path = download_video(latest["url"], latest["id"])
-    if video_path and post_to_facebook(video_path, latest["caption"]):
-        # Save latest ID only after successful upload
-        LAST_ID_FILE.write_text(latest["id"])
-        video_path.unlink()  # cleanup
-        print("🧹 Cleaned up local file.")
+    if video_path:
+        # Prepend custom caption
+        fb_caption = f"Twice Tiktok Update\n\n{latest['caption']}"
+        if post_to_facebook(video_path, fb_caption):
+            # Save latest ID only after successful upload
+            LAST_ID_FILE.write_text(latest["id"])
+            video_path.unlink()  # cleanup
+            print("🧹 Cleaned up local file.")
