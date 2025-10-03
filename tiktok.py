@@ -93,7 +93,7 @@ if __name__ == "__main__":
     video_path = download_video(latest["url"], latest["id"])
     if video_path:
         # Prepend custom caption
-        fb_caption = f"Twice Tiktok Update\n\n{latest['caption']}"
+        fb_caption = f"📸 TWICE Tiktok Update\n\n{latest['caption']}"
         if post_to_facebook(video_path, fb_caption):
             # Save latest ID only after successful upload
             LAST_ID_FILE.write_text(latest["id"])
