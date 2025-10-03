@@ -2,7 +2,7 @@ name: TikTok to Facebook Auto Upload
 
 on:
     schedule:
-        # Runs at 6 PM PH TIME
+        # Runs at 6 PM PHT (UTC+8)
         - cron: "0 10 * * *"
     workflow_dispatch: # manual trigger
 
@@ -24,23 +24,24 @@ jobs:
                   python -m pip install --upgrade pip
                   pip install requests yt-dlp
 
-            # Restore cached last_video_id.txt
-            - name: Restore last video cache
-              uses: actions/cache@v3
-              with:
-                  path: downloads/last_video_id.txt
-                  key: last-video-cache
-
             - name: Run TikTok → Facebook script
               env:
                   PAGE_ACCESS_TOKEN: ${{ secrets.PAGE_ACCESS_TOKEN }}
                   PAGE_ID: ${{ secrets.PAGE_ID }}
               run: python tiktok.py
 
-            # Save updated last_video_id.txt back to cache
-            - name: Save last video cache
-              if: always()
-              uses: actions/cache@v3
-              with:
-                  path: downloads/last_video_id.txt
-                  key: last-video-cache
+            # Commit updated last_video_id.txt if changed
+            - name: Configure Git for commit
+              run: |
+                  git config --global user.name "github-actions[bot]"
+                  git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+            - name: Commit updated last_video_id.txt
+              run: |
+                  git add downloads/last_video_id.txt
+                  git diff --cached --quiet || git commit -m "Update last_video_id after new TikTok upload"
+
+            - name: Push changes
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: git push origin HEAD:${{ github.ref_name }}

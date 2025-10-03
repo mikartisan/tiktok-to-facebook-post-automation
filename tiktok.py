@@ -15,23 +15,29 @@ PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
 PAGE_ID = os.getenv("PAGE_ID")
 
 def get_latest_video(username: str):
-    """Fetch metadata of the latest TikTok video."""
-    url = f"https://www.tiktok.com/@{username}"
-    cmd = ["python", "-m", "yt_dlp", "-J", "--flat-playlist", url]
-
+    """Fetch the latest TikTok video with full caption."""
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        # Step 1: Get latest video ID from flat playlist
+        playlist_cmd = ["python", "-m", "yt_dlp", "-J", "--flat-playlist", f"https://www.tiktok.com/@{username}"]
+        result = subprocess.run(playlist_cmd, capture_output=True, text=True, check=True)
         data = json.loads(result.stdout)
 
-        if "entries" not in data or not data["entries"]:
+        if not data.get("entries"):
             print("⚠️ No videos found.")
             return None
 
-        latest = data["entries"][0]  # newest video
+        latest_id = data["entries"][0]["id"]
+        video_url = f"https://www.tiktok.com/@{username}/video/{latest_id}"
+
+        # Step 2: Fetch full video JSON to get complete caption
+        video_cmd = ["python", "-m", "yt_dlp", "-j", video_url]
+        video_result = subprocess.run(video_cmd, capture_output=True, text=True, check=True)
+        video_data = json.loads(video_result.stdout)
+
         return {
-            "id": latest.get("id"),
-            "url": latest.get("url"),
-            "caption": latest.get("title") or "No caption"
+            "id": video_data["id"],
+            "url": video_data["webpage_url"],
+            "caption": video_data.get("description") or "No caption"
         }
 
     except subprocess.CalledProcessError as e:
@@ -70,7 +76,7 @@ if __name__ == "__main__":
     if not latest:
         sys.exit(0)
 
-    # Ensure last_video_id.txt exists (first run safety)
+    # Ensure last_video_id.txt exists (first run)
     if not LAST_ID_FILE.exists():
         LAST_ID_FILE.write_text("")
 
