@@ -2,8 +2,11 @@ name: TikTok to Facebook Auto Upload
 
 on:
     schedule:
-        # Runs at 6 PM PHT (UTC+8)
-        - cron: "0 10 * * *"
+        - cron: "0 10 * * *"  # 6:00 PM PH
+        - cron: "0 12 * * *"  # 8:00 PM PH
+        - cron: "0 14 * * *"  # 10:00 PM PH
+        - cron: "0 4 * * *"   # 12:00 PM PH
+        - cron: "0 0 * * *"   # 8:00 AM PH
     workflow_dispatch: # manual trigger
 
 jobs:
